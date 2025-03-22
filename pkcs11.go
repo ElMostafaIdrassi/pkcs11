@@ -106,11 +106,11 @@ void Destroy(struct ctx *c)
 }
 #endif
 
-CK_RV Initialize(struct ctx * c)
+CK_RV Initialize(struct ctx * c, CK_FLAGS flags)
 {
 	CK_C_INITIALIZE_ARGS args;
 	memset(&args, 0, sizeof(args));
-	args.flags = CKF_OS_LOCKING_OK;
+	args.flags = flags;
 	return c->sym->C_Initialize(&args);
 }
 
@@ -806,8 +806,15 @@ func (c *Ctx) Destroy() {
 }
 
 // Initialize initializes the Cryptoki library.
-func (c *Ctx) Initialize() error {
-	e := C.Initialize(c.ctx)
+// If no flags are passed, CKF_OS_LOCKING_OK is used to ensure backwards compatibility.
+// Otherwise, the first value passed is used.
+// Note that multiple flags are usually combined using the bitwise OR operator.
+func (c *Ctx) Initialize(flags ...int) error {
+	cflags := C.CK_FLAGS(CKF_OS_LOCKING_OK)
+	if len(flags) > 0 {
+		cflags = C.CK_FLAGS(flags[0])
+	}
+	e := C.Initialize(c.ctx, cflags)
 	return toError(e)
 }
 

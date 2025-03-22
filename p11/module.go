@@ -69,6 +69,11 @@ var modules = make(map[string]Module)
 var modulesMu sync.Mutex
 
 // OpenModule loads a PKCS#11 module (a .so file or dynamically loaded library).
+// If initFlags is provided, the first value will be passed to the module's C_Initialize
+// function. Otherwise if initFlags is not provided, CKF_OS_LOCKING_OK will be used to
+// ensure backwards compatibility with the previous behavior.
+// Note that multiple flags are usually combined using the bitwise OR operator.
+//
 // It's an error to load a PKCS#11 module multiple times, so this package
 // will return a previously loaded Module for the same path if possible.
 //
@@ -76,7 +81,7 @@ var modulesMu sync.Mutex
 // place where you are likely to need to explicitly unload a module is if you
 // fork your process. If you need to fork, you may want to use the lower-level
 // `pkcs11` package.
-func OpenModule(path string) (Module, error) {
+func OpenModule(path string, initFlags ...int) (Module, error) {
 	modulesMu.Lock()
 	defer modulesMu.Unlock()
 	module, ok := modules[path]
@@ -89,7 +94,11 @@ func OpenModule(path string) (Module, error) {
 		return Module{}, fmt.Errorf("failed to load module %q", path)
 	}
 
-	err := newCtx.Initialize()
+	flags := pkcs11.CKF_OS_LOCKING_OK
+	if len(initFlags) > 0 {
+		flags = initFlags[0]
+	}
+	err := newCtx.Initialize(flags)
 	if err != nil {
 		return Module{}, fmt.Errorf("failed to initialize module: %s", err)
 	}
